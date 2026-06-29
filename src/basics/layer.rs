@@ -1,7 +1,7 @@
 use std::arch::x86_64::{_pdep_u64, _pext_u64};
 use std::fmt::{Debug, Error, Formatter};
 use std::iter::from_fn;
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
 use crate::basics::castling::{CastlingData, CastlingType};
 use crate::basics::player::Player;
@@ -400,6 +400,16 @@ impl BitOr for Layer {
 	}
 }
 
+impl BitXor for Layer {
+	type Output = Self;
+
+	fn bitxor(self, other: Self) -> Self::Output {
+		Self {
+			bits: self.bits ^ other.bits,
+		}
+	}
+}
+
 impl Not for Layer {
 	type Output = Self;
 
@@ -417,6 +427,12 @@ impl BitAndAssign for Layer {
 impl BitOrAssign for Layer {
 	fn bitor_assign(&mut self, other: Self) {
 		*self = *self | other;
+	}
+}
+
+impl BitXorAssign for Layer {
+	fn bitxor_assign(&mut self, other: Self) {
+		*self = *self ^ other;
 	}
 }
 

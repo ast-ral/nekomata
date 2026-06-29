@@ -108,4 +108,11 @@ impl Score {
 			Self::Heuristic { value } => Self::Heuristic { value: -value },
 		}
 	}
+
+	pub(crate) fn is_terminal(self) -> bool {
+		match self {
+			Self::Checkmate { .. } => true,
+			_ => false,
+		}
+	}
 }
