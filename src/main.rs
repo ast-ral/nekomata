@@ -1,18 +1,22 @@
-mod board;
-mod eval;
-mod minimax;
+#[cfg(not(target_arch = "x86_64"))]
+compile_error!("only x86-64 support for the moment, sorry!");
+
+mod basics;
+mod ply_interface;
+mod score;
+mod search;
+mod static_eval;
 
 use std::io::stdin;
 
-use crate::board::{Board, Player, Turn};
-use crate::eval::Score;
-use crate::minimax::minimax;
+use crate::basics::State;
+use crate::ply_interface::{apply_ply, diff_states};
+use crate::search::{SearchParameters, SearchResult, search};
 
 fn main() {
 	let stdin = stdin().lines().map(|x| x.expect("error while reading"));
 
-	let mut board = Board::new();
-	let mut current_player = Player::White;
+	let mut state = State::initial();
 
 	for line in stdin {
 		let mut line = line.split(" ");
@@ -39,31 +43,10 @@ fn main() {
 				// no special handling atm
 			},
 			"go" => {
-				dbg!(arguments);
+				let SearchResult { best_child, .. } = search(SearchParameters::standard_search(state.clone(), 5));
+				let ply = diff_states(&state, &best_child.unwrap());
 
-				let possible_turns = board.get_possible_turns(current_player);
-
-				let mut best_turn = None;
-				let mut best_eval = Score::worst_for_player(current_player);
-
-				for turn in possible_turns {
-					let mut board = board.clone();
-					board.perform_turn(turn);
-
-					let eval = minimax(board, current_player.flipped(), 2);
-
-					let better = match current_player {
-						Player::White => eval > best_eval,
-						Player::Black => eval < best_eval,
-					};
-
-					if better {
-						best_turn = Some(turn);
-						best_eval = eval;
-					}
-				}
-
-				println!("bestmove {}", best_turn.unwrap().to_uci());
+				println!("bestmove {ply}");
 			},
 			"ponderhit" => {
 				// we don't do pondering I don't think
@@ -71,13 +54,12 @@ fn main() {
 			"position" => {
 				assert_eq!(arguments[0], "startpos", "other modes unsupported");
 
-				board = Board::new();
-				current_player = Player::White;
+				state = State::initial();
 
 				if let Some(&"moves") = arguments.get(1) {
-					for turn in arguments.drain(2 ..) {
-						board.perform_turn(Turn::from_uci(turn));
-						current_player = current_player.flipped();
+					for ply in arguments.drain(2 ..) {
+						let ply = ply.parse().unwrap();
+						apply_ply(&mut state, ply);
 					}
 				}
 			},
