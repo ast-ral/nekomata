@@ -110,12 +110,21 @@ fn main() {
 				// we don't do pondering I don't think
 			},
 			"position" => {
-				assert_eq!(arguments[0], "startpos", "other modes unsupported");
+				let mut arguments = arguments.into_iter();
 
-				state = State::initial();
+				state = match arguments.next().unwrap() {
+					"startpos" => State::initial(),
+					"fen" => {
+						let pieces: Vec<_> = (&mut arguments).take(6).collect();
+						let fen = pieces.join(" ");
 
-				if let Some(&"moves") = arguments.get(1) {
-					for ply in arguments.drain(2 ..) {
+						State::from_fen(&fen)
+					},
+					_ => panic!("unrecognized subcommand after position"),
+				};
+
+				if let Some("moves") = arguments.next() {
+					for ply in arguments {
 						let ply = ply.parse().unwrap();
 						apply_ply(&mut state, ply);
 					}
