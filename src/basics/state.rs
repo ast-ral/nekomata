@@ -91,30 +91,36 @@ impl State {
 	pub(crate) fn children(&self) -> Vec<State> {
 		let mut out = Vec::new();
 
-		let mut push_state = |mut own_state: PlayerState, mut opponent_state: PlayerState, en_passant| {
-			if (own_state.rook & Layer::KINGSIDE_ROOK_MASK).is_empty() {
-				own_state.can_castle_kingside = false;
+		let own_state = self[self.to_move].clone();
+		let opponent_state = self[self.to_move.flipped()].clone();
+
+		let mut push_state = |mut own_child_state: PlayerState, mut opponent_child_state: PlayerState, en_passant| {
+			let own_rook_diff = own_child_state.rook ^ own_state.rook;
+			let opponent_rook_diff = own_child_state.rook ^ opponent_state.rook;
+
+			if (own_rook_diff & Layer::KINGSIDE_ROOK_MASK).is_nonempty() {
+				own_child_state.can_castle_kingside = false;
 			}
-			if (own_state.rook & Layer::QUEENSIDE_ROOK_MASK).is_empty() {
-				own_state.can_castle_queenside = false;
+			if (own_rook_diff & Layer::QUEENSIDE_ROOK_MASK).is_nonempty() {
+				own_child_state.can_castle_queenside = false;
 			}
-			if (opponent_state.rook & Layer::KINGSIDE_ROOK_MASK).is_empty() {
-				opponent_state.can_castle_kingside = false;
+			if (opponent_rook_diff & Layer::KINGSIDE_ROOK_MASK).is_nonempty() {
+				opponent_child_state.can_castle_kingside = false;
 			}
-			if (opponent_state.rook & Layer::QUEENSIDE_ROOK_MASK).is_empty() {
-				opponent_state.can_castle_queenside = false;
+			if (opponent_rook_diff & Layer::QUEENSIDE_ROOK_MASK).is_nonempty() {
+				opponent_child_state.can_castle_queenside = false;
 			}
 
 			let mut child = match self.to_move {
 				Player::White => Self {
-					white: own_state,
-					black: opponent_state,
+					white: own_child_state,
+					black: opponent_child_state,
 					to_move: Player::White,
 					en_passant,
 				},
 				Player::Black => Self {
-					white: opponent_state,
-					black: own_state,
+					white: opponent_child_state,
+					black: own_child_state,
 					to_move: Player::Black,
 					en_passant,
 				},
@@ -142,9 +148,6 @@ impl State {
 				out.push(child);
 			}
 		};
-
-		let own_state = self[self.to_move].clone();
-		let opponent_state = self[self.to_move.flipped()].clone();
 
 		let own_pieces = own_state.all_pieces();
 		let opponent_pieces = opponent_state.all_pieces();

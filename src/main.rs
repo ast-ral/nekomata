@@ -9,9 +9,9 @@ mod static_eval;
 
 use std::io::stdin;
 
-use crate::basics::State;
+use crate::basics::{Player, State};
 use crate::ply_interface::{apply_ply, diff_states};
-use crate::search::{SearchParameters, SearchResult, search};
+use crate::search::{SearchParameters, SearchResult, TimeControl, search};
 
 fn main() {
 	let stdin = stdin().lines().map(|x| x.expect("error while reading"));
@@ -43,8 +43,66 @@ fn main() {
 				// no special handling atm
 			},
 			"go" => {
-				let SearchResult { best_child, .. } = search(SearchParameters::standard_search(state.clone(), 5));
-				let ply = diff_states(&state, &best_child.unwrap());
+				let mut time: u64 = 0;
+				let mut increment: u64 = 0;
+
+				let mut arguments = arguments.into_iter();
+
+				loop {
+					match arguments.next() {
+						Some("movetime") => increment = arguments.next().unwrap().parse().unwrap(),
+						Some("wtime") => {
+							if state.to_move == Player::White {
+								time = arguments.next().unwrap().parse().unwrap();
+							}
+						},
+						Some("winc") => {
+							if state.to_move == Player::White {
+								increment = arguments.next().unwrap().parse().unwrap();
+							}
+						},
+						Some("btime") => {
+							if state.to_move == Player::Black {
+								time = arguments.next().unwrap().parse().unwrap();
+							}
+						},
+						Some("binc") => {
+							if state.to_move == Player::Black {
+								increment = arguments.next().unwrap().parse().unwrap();
+							}
+						},
+						None => break,
+						_ => {},
+					}
+				}
+
+				let time_usage = time.saturating_sub(increment) / 50 + increment;
+
+				let mut time_control = TimeControl::ms_from_now(time_usage);
+
+				let mut best_child_overall = None;
+
+				for depth in 1 .. {
+					let maybe_search_result = search(
+						SearchParameters::standard_search(state.clone(), depth),
+						&mut time_control,
+					);
+					if let Some(SearchResult { best_child, score }) = maybe_search_result {
+						println!("info depth {depth}");
+						println!("info time {}", time_control.elapsed());
+						println!("info nodes {}", time_control.nodes_count());
+						best_child_overall = Some(best_child.unwrap());
+						time_control.some_move_found();
+
+						if score.is_terminal() {
+							break;
+						}
+					} else {
+						break;
+					}
+				}
+
+				let ply = diff_states(&state, &best_child_overall.unwrap());
 
 				println!("bestmove {ply}");
 			},

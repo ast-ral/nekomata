@@ -74,6 +74,16 @@ impl Score {
 		}
 	}
 
+	pub(crate) fn sub_turn(self) -> Self {
+		match self {
+			Self::Checkmate { winning, in_moves } => Self::Checkmate {
+				winning,
+				in_moves: in_moves.saturating_sub(0),
+			},
+			value => value,
+		}
+	}
+
 	pub(crate) fn instant_loss() -> Self {
 		Score::Checkmate {
 			winning: false,
@@ -96,6 +106,13 @@ impl Score {
 			},
 			Self::Stalemate => Self::Stalemate,
 			Self::Heuristic { value } => Self::Heuristic { value: -value },
+		}
+	}
+
+	pub(crate) fn is_terminal(self) -> bool {
+		match self {
+			Self::Checkmate { .. } => true,
+			_ => false,
 		}
 	}
 }

@@ -52,6 +52,9 @@ pub(crate) fn apply_ply(state: &mut State, ply: Ply) {
 
 	let player_to_move = state.to_move;
 
+	let own_original_rook = state[player_to_move].rook;
+	let opponent_original_rook = state[player_to_move.flipped()].rook;
+
 	let mut new_en_passant = EnPassantState::empty();
 
 	for piece in Piece::ALL {
@@ -132,16 +135,19 @@ pub(crate) fn apply_ply(state: &mut State, ply: Ply) {
 		break;
 	}
 
-	if (state[player_to_move].rook & Layer::KINGSIDE_ROOK_MASK).is_empty() {
+	let own_rook_diff = own_original_rook ^ state[player_to_move].rook;
+	let opponent_rook_diff = opponent_original_rook ^ state[player_to_move.flipped()].rook;
+
+	if (own_rook_diff & Layer::KINGSIDE_ROOK_MASK).is_nonempty() {
 		state[player_to_move].can_castle_kingside = false;
 	}
-	if (state[player_to_move].rook & Layer::QUEENSIDE_ROOK_MASK).is_empty() {
+	if (own_rook_diff & Layer::QUEENSIDE_ROOK_MASK).is_nonempty() {
 		state[player_to_move].can_castle_queenside = false;
 	}
-	if (state[player_to_move.flipped()].rook & Layer::KINGSIDE_ROOK_MASK).is_empty() {
+	if (opponent_rook_diff & Layer::KINGSIDE_ROOK_MASK).is_nonempty() {
 		state[player_to_move.flipped()].can_castle_kingside = false;
 	}
-	if (state[player_to_move.flipped()].rook & Layer::QUEENSIDE_ROOK_MASK).is_empty() {
+	if (opponent_rook_diff & Layer::QUEENSIDE_ROOK_MASK).is_nonempty() {
 		state[player_to_move.flipped()].can_castle_queenside = false;
 	}
 
