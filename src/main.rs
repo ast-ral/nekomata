@@ -43,7 +43,7 @@ fn main() {
 				// no special handling atm
 			},
 			"go" => {
-				let SearchResult { best_child, .. } = search(SearchParameters::standard_search(state.clone(), 5));
+				let SearchResult { best_child, .. } = search(SearchParameters::standard_search(state.clone(), 7));
 				let ply = diff_states(&state, &best_child.unwrap());
 
 				println!("bestmove {ply}");
