@@ -366,6 +366,143 @@ impl State {
 
 		false
 	}
+
+	pub(crate) fn from_fen(fen: &str) -> Self {
+		let mut out = Self {
+			white: PlayerState {
+				pawn: Layer::empty(),
+				bishop: Layer::empty(),
+				knight: Layer::empty(),
+				rook: Layer::empty(),
+				queen: Layer::empty(),
+				king: Layer::empty(),
+				can_castle_kingside: false,
+				can_castle_queenside: true,
+			},
+			black: PlayerState {
+				pawn: Layer::empty(),
+				bishop: Layer::empty(),
+				knight: Layer::empty(),
+				rook: Layer::empty(),
+				queen: Layer::empty(),
+				king: Layer::empty(),
+				can_castle_kingside: false,
+				can_castle_queenside: true,
+			},
+			to_move: Player::White,
+			en_passant: EnPassantState::empty(),
+		};
+
+		let split: Vec<_> = fen.split(" ").collect();
+		let board = split[0];
+		let to_play = split[1];
+		let castles = split[2];
+		let en_passant = split[3];
+
+		let mut file_i = 0;
+		let mut rank_i = 7;
+
+		for ch in board.chars() {
+			let square = Square::from_rank_and_file(File::ALL[file_i % 8], Rank::ALL[rank_i]);
+
+			match ch {
+				'P' => {
+					out.white.pawn |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'B' => {
+					out.white.bishop |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'N' => {
+					out.white.knight |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'R' => {
+					out.white.rook |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'Q' => {
+					out.white.queen |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'K' => {
+					out.white.king |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'p' => {
+					out.black.pawn |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'b' => {
+					out.black.bishop |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'n' => {
+					out.black.knight |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'r' => {
+					out.black.rook |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'q' => {
+					out.black.queen |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'k' => {
+					out.black.king |= Layer::from_square(square);
+					file_i += 1;
+				},
+				'1' => file_i += 1,
+				'2' => file_i += 2,
+				'3' => file_i += 3,
+				'4' => file_i += 4,
+				'5' => file_i += 5,
+				'6' => file_i += 6,
+				'7' => file_i += 7,
+				'8' => file_i += 8,
+				'/' => {
+					file_i = 0;
+					rank_i -= 1
+				},
+				_ => panic!(),
+			};
+		}
+
+		match to_play {
+			"w" => out.to_move = Player::White,
+			"b" => out.to_move = Player::Black,
+			_ => panic!(),
+		}
+
+		for ch in castles.chars() {
+			match ch {
+				'K' => out.white.can_castle_kingside = true,
+				'Q' => out.white.can_castle_queenside = true,
+				'k' => out.black.can_castle_kingside = true,
+				'q' => out.black.can_castle_queenside = true,
+				'-' => {},
+				_ => panic!(),
+			}
+		}
+
+		if en_passant != "-" {
+			let move_to: Square = en_passant.parse().unwrap();
+			let capture = Square::from_rank_and_file(move_to.file(), match move_to.rank() {
+				Rank::N3 => Rank::N4,
+				Rank::N6 => Rank::N5,
+				_ => panic!(),
+			});
+
+			out.en_passant = EnPassantState {
+				move_to: Layer::from_square(move_to),
+				capture: Layer::from_square(capture),
+			}
+		}
+
+		out
+	}
 }
 
 impl PlayerState {
