@@ -1,0 +1,2 @@
+[build]
+rustflags = ["-C", "target-feature=+lzcnt,+bmi1,+bmi2,+popcnt"]
