@@ -93,9 +93,12 @@ fn main() {
 						assert!(pv_found);
 						time_control.some_move_found();
 
-						print!("info depth {depth} time {time} nodes {nodes}",
-							time = time_control.elapsed(),
+						let elapsed = time_control.elapsed();
+
+						print!("info depth {depth} time {time} nodes {nodes} nps {nps}",
+							time = elapsed.as_millis(),
 							nodes = time_control.nodes_count(),
+							nps = (time_control.nodes_count() as f64 / elapsed.as_secs_f64()) as u128,
 						);
 
 						match score {

@@ -170,8 +170,8 @@ impl TimeControl {
 		self.some_move_found = true;
 	}
 
-	pub(crate) fn elapsed(&self) -> u64 {
-		self.start.elapsed().as_millis().try_into().unwrap()
+	pub(crate) fn elapsed(&self) -> Duration {
+		self.start.elapsed()
 	}
 
 	pub(crate) fn nodes_count(&self) -> u64 {
