@@ -10,8 +10,9 @@ mod static_eval;
 use std::io::stdin;
 
 use crate::basics::{Player, State};
+use crate::score::Score;
 use crate::ply_interface::{apply_ply, diff_states};
-use crate::search::{SearchParameters, SearchResult, TimeControl, search};
+use crate::search::{SearchParameters, SearchResult, TimeControl, PvTable, search};
 
 fn main() {
 	let stdin = stdin().lines().map(|x| x.expect("error while reading"));
@@ -21,7 +22,7 @@ fn main() {
 	for line in stdin {
 		let mut line = line.split(" ");
 		let command = line.next().unwrap();
-		let mut arguments: Vec<_> = line.collect();
+		let arguments: Vec<_> = line.collect();
 
 		match command {
 			"uci" => {
@@ -77,22 +78,57 @@ fn main() {
 				}
 
 				let time_usage = time.saturating_sub(increment) / 50 + increment;
-
 				let mut time_control = TimeControl::ms_from_now(time_usage);
 
 				let mut best_child_overall = None;
 
 				for depth in 1 .. {
+					let mut pv_table = PvTable::new();
+
 					let maybe_search_result = search(
-						SearchParameters::standard_search(state.clone(), depth),
+						SearchParameters::standard_search(state.clone(), depth, &mut pv_table),
 						&mut time_control,
 					);
-					if let Some(SearchResult { best_child, score }) = maybe_search_result {
-						println!("info depth {depth}");
-						println!("info time {}", time_control.elapsed());
-						println!("info nodes {}", time_control.nodes_count());
-						best_child_overall = Some(best_child.unwrap());
+					if let Some(SearchResult { score, pv_found }) = maybe_search_result {
+						assert!(pv_found);
 						time_control.some_move_found();
+
+						let elapsed = time_control.elapsed();
+
+						print!("info depth {depth} time {time} nodes {nodes} nps {nps}",
+							time = elapsed.as_millis(),
+							nodes = time_control.nodes_count(),
+							nps = (time_control.nodes_count() as f64 / elapsed.as_secs_f64()) as u128,
+						);
+
+						match score {
+							Score::Checkmate { winning: true, in_moves } => {
+								print!(" score mate {}", in_moves / 2 + 1);
+							},
+							Score::Checkmate { winning: false, in_moves } => {
+								print!(" score mate -{}", in_moves / 2);
+							},
+							Score::Stalemate => {
+								print!(" score cp 0");
+							},
+							Score::Heuristic { value } => {
+								print!(" score cp {}", (value * 100.0).round() as i64);
+							},
+						}
+
+						let pv = pv_table.extract_pv();
+						best_child_overall = Some(pv[0].clone());
+
+						print!(" pv");
+
+						let mut current_state = &state;
+
+						for state in pv {
+							print!(" {}", diff_states(current_state, state));
+							current_state = &state;
+						}
+
+						println!();
 
 						if score.is_terminal() {
 							break;

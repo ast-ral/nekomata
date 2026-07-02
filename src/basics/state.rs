@@ -377,7 +377,7 @@ impl State {
 				queen: Layer::empty(),
 				king: Layer::empty(),
 				can_castle_kingside: false,
-				can_castle_queenside: true,
+				can_castle_queenside: false,
 			},
 			black: PlayerState {
 				pawn: Layer::empty(),
@@ -387,7 +387,7 @@ impl State {
 				queen: Layer::empty(),
 				king: Layer::empty(),
 				can_castle_kingside: false,
-				can_castle_queenside: true,
+				can_castle_queenside: false,
 			},
 			to_move: Player::White,
 			en_passant: EnPassantState::empty(),
