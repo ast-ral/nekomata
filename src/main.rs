@@ -10,6 +10,7 @@ mod static_eval;
 use std::io::stdin;
 
 use crate::basics::{Player, State};
+use crate::score::Score;
 use crate::ply_interface::{apply_ply, diff_states};
 use crate::search::{SearchParameters, SearchResult, TimeControl, search};
 
@@ -88,9 +89,25 @@ fn main() {
 						&mut time_control,
 					);
 					if let Some(SearchResult { best_child, score }) = maybe_search_result {
+						match score {
+							Score::Checkmate { winning: true, in_moves } => {
+								println!("info score mate {}", in_moves / 2 + 1);
+							},
+							Score::Checkmate { winning: false, in_moves } => {
+								println!("info score mate -{}", in_moves / 2);
+							},
+							Score::Stalemate => {
+								println!("info score cp 0");
+							},
+							Score::Heuristic { value } => {
+								println!("info score cp {}", (value * 100.0).round() as i64);
+							},
+						}
+
 						println!("info depth {depth}");
 						println!("info time {}", time_control.elapsed());
 						println!("info nodes {}", time_control.nodes_count());
+
 						best_child_overall = Some(best_child.unwrap());
 						time_control.some_move_found();
 
