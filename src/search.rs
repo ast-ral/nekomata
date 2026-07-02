@@ -4,16 +4,18 @@ use crate::basics::State;
 use crate::score::Score;
 use crate::static_eval::static_eval;
 
-pub(crate) struct SearchParameters {
-	pub(crate) state: State,
-	pub(crate) depth: usize,
-	pub(crate) cutoff_min: Score,
-	pub(crate) cutoff_max: Score,
+pub(crate) struct SearchParameters<'a> {
+	state: State,
+	current_depth: usize,
+	remaining_depth: usize,
+	cutoff_min: Score,
+	cutoff_max: Score,
+	pv_table: &'a mut PvTable,
 }
 
 pub(crate) struct SearchResult {
 	pub(crate) score: Score,
-	pub(crate) best_child: Option<State>,
+	pub(crate) pv_found: bool,
 }
 
 pub(crate) struct TimeControl {
@@ -23,22 +25,30 @@ pub(crate) struct TimeControl {
 	some_move_found: bool,
 }
 
-pub(crate) fn search(parameters: SearchParameters, time_control: &mut TimeControl) -> Option<SearchResult> {
+pub(crate) struct PvTable {
+	layers: Vec<Vec<State>>,
+}
+
+pub(crate) fn search(parameters: SearchParameters<'_>, time_control: &mut TimeControl) -> Option<SearchResult> {
 	let SearchParameters {
 		state,
-		depth,
+		current_depth,
+		remaining_depth,
 		mut cutoff_min,
 		cutoff_max,
+		pv_table,
 	} = parameters;
 
 	if !time_control.can_continue() {
 		return None;
 	}
 
-	if depth == 0 {
+	let mut pv_found = false;
+
+	if remaining_depth == 0 {
 		return Some(SearchResult {
 			score: static_eval(&state),
-			best_child: None,
+			pv_found,
 		});
 	}
 
@@ -53,27 +63,28 @@ pub(crate) fn search(parameters: SearchParameters, time_control: &mut TimeContro
 
 		return Some(SearchResult {
 			score,
-			best_child: None,
+			pv_found,
 		});
 	}
 
 	let mut best_score = Score::instant_loss();
-	let mut best_child = None;
 
 	// no point sorting based on static eval if we're just gonna static eval all child nodes
-	if depth > 1 {
+	if remaining_depth > 1 {
 		// this looks weird but is correct
 		// ascending order of eval from other perspective -> best moves from our perspective first
 		children.sort_by_cached_key(|state| static_eval(&state));
 	}
 
 	for child in children {
-		let SearchResult { score: child_score, .. } = search(
+		let SearchResult { score: child_score, pv_found: child_pv_found } = search(
 			SearchParameters {
 				state: child.clone(),
-				depth: depth - 1,
+				current_depth: current_depth + 1,
+				remaining_depth: remaining_depth - 1,
 				cutoff_min: cutoff_max.flipped().sub_turn(),
 				cutoff_max: cutoff_min.flipped().sub_turn(),
+				pv_table,
 			},
 			time_control,
 		)?;
@@ -82,15 +93,31 @@ pub(crate) fn search(parameters: SearchParameters, time_control: &mut TimeContro
 		if child_score >= cutoff_max {
 			return Some(SearchResult {
 				score: child_score,
-				best_child: None,
+				pv_found,
 			});
 		}
 
 		if child_score > best_score {
 			best_score = child_score;
-			best_child = Some(child);
 
 			if child_score > cutoff_min {
+				if pv_table.layers.len() <= current_depth {
+					pv_table.layers.resize(current_depth + 1, Vec::new());
+				}
+
+				let (split_lower, split_upper) = pv_table.layers.split_at_mut(current_depth + 1);
+
+				let this_layer = &mut split_lower[current_depth];
+
+				this_layer.clear();
+				this_layer.push(child);
+
+				if child_pv_found {
+					this_layer.extend_from_slice(&split_upper[0]);
+				}
+
+				pv_found = true;
+
 				cutoff_min = child_score;
 			}
 		}
@@ -98,17 +125,19 @@ pub(crate) fn search(parameters: SearchParameters, time_control: &mut TimeContro
 
 	Some(SearchResult {
 		score: best_score,
-		best_child,
+		pv_found,
 	})
 }
 
-impl SearchParameters {
-	pub(crate) fn standard_search(state: State, depth: usize) -> Self {
+impl<'a> SearchParameters<'a> {
+	pub(crate) fn standard_search(state: State, depth: usize, pv_table: &'a mut PvTable) -> Self {
 		Self {
 			state,
-			depth,
+			current_depth: 0,
+			remaining_depth: depth,
 			cutoff_min: Score::instant_loss(),
 			cutoff_max: Score::instant_victory(),
+			pv_table,
 		}
 	}
 }
@@ -147,5 +176,17 @@ impl TimeControl {
 
 	pub(crate) fn nodes_count(&self) -> u64 {
 		self.counter
+	}
+}
+
+impl PvTable {
+	pub(crate) fn new() -> Self {
+		Self {
+			layers: Vec::new(),
+		}
+	}
+
+	pub(crate) fn extract_pv(&self) -> &[State] {
+		&self.layers[0]
 	}
 }

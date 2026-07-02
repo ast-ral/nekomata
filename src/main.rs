@@ -12,7 +12,7 @@ use std::io::stdin;
 use crate::basics::{Player, State};
 use crate::score::Score;
 use crate::ply_interface::{apply_ply, diff_states};
-use crate::search::{SearchParameters, SearchResult, TimeControl, search};
+use crate::search::{SearchParameters, SearchResult, TimeControl, PvTable, search};
 
 fn main() {
 	let stdin = stdin().lines().map(|x| x.expect("error while reading"));
@@ -78,17 +78,21 @@ fn main() {
 				}
 
 				let time_usage = time.saturating_sub(increment) / 50 + increment;
-
 				let mut time_control = TimeControl::ms_from_now(time_usage);
 
 				let mut best_child_overall = None;
 
 				for depth in 1 .. {
+					let mut pv_table = PvTable::new();
+
 					let maybe_search_result = search(
-						SearchParameters::standard_search(state.clone(), depth),
+						SearchParameters::standard_search(state.clone(), depth, &mut pv_table),
 						&mut time_control,
 					);
-					if let Some(SearchResult { best_child, score }) = maybe_search_result {
+					if let Some(SearchResult { score, pv_found }) = maybe_search_result {
+						assert!(pv_found);
+						time_control.some_move_found();
+
 						match score {
 							Score::Checkmate { winning: true, in_moves } => {
 								println!("info score mate {}", in_moves / 2 + 1);
@@ -108,8 +112,19 @@ fn main() {
 						println!("info time {}", time_control.elapsed());
 						println!("info nodes {}", time_control.nodes_count());
 
-						best_child_overall = Some(best_child.unwrap());
-						time_control.some_move_found();
+						let pv = pv_table.extract_pv();
+						best_child_overall = Some(pv[0].clone());
+
+						print!("info pv");
+
+						let mut current_state = &state;
+
+						for state in pv {
+							print!(" {}", diff_states(current_state, state));
+							current_state = &state;
+						}
+
+						println!();
 
 						if score.is_terminal() {
 							break;
