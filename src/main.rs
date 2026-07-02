@@ -22,7 +22,7 @@ fn main() {
 	for line in stdin {
 		let mut line = line.split(" ");
 		let command = line.next().unwrap();
-		let mut arguments: Vec<_> = line.collect();
+		let arguments: Vec<_> = line.collect();
 
 		match command {
 			"uci" => {
