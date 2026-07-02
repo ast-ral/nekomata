@@ -93,29 +93,30 @@ fn main() {
 						assert!(pv_found);
 						time_control.some_move_found();
 
+						print!("info depth {depth} time {time} nodes {nodes}",
+							time = time_control.elapsed(),
+							nodes = time_control.nodes_count(),
+						);
+
 						match score {
 							Score::Checkmate { winning: true, in_moves } => {
-								println!("info score mate {}", in_moves / 2 + 1);
+								print!(" score mate {}", in_moves / 2 + 1);
 							},
 							Score::Checkmate { winning: false, in_moves } => {
-								println!("info score mate -{}", in_moves / 2);
+								print!(" score mate -{}", in_moves / 2);
 							},
 							Score::Stalemate => {
-								println!("info score cp 0");
+								print!(" score cp 0");
 							},
 							Score::Heuristic { value } => {
-								println!("info score cp {}", (value * 100.0).round() as i64);
+								print!(" score cp {}", (value * 100.0).round() as i64);
 							},
 						}
-
-						println!("info depth {depth}");
-						println!("info time {}", time_control.elapsed());
-						println!("info nodes {}", time_control.nodes_count());
 
 						let pv = pv_table.extract_pv();
 						best_child_overall = Some(pv[0].clone());
 
-						print!("info pv");
+						print!(" pv");
 
 						let mut current_state = &state;
 
